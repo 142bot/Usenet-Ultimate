@@ -551,7 +551,11 @@ export default function FiltersOverlay({
                   <div
                     key={method}
                     draggable
-                    onDragStart={() => setDraggedSortItem(method)}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', method);
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDraggedSortItem(method);
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       setDragOverSortItem(method);
