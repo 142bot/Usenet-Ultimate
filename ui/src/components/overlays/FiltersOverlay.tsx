@@ -529,6 +529,9 @@ export default function FiltersOverlay({
             <div className="space-y-2">
               {(activeFilters.sortOrder || ['quality', 'videoTag', 'size', 'encode', 'visualTag', 'audioTag', 'language', 'edition']).map((method, index) => {
                 const isDragging = draggedSortItem === method;
+                // dragOverSortItem is encoded as `${id}::before` or `${id}::after` so a single
+                // piece of state carries both *which* row is hovered and *which half* of it --
+                // avoids a second useState per list just to track insertion side.
                 const [dragOverSortId, dragOverSortPos] = (dragOverSortItem ?? '').split('::');
                 const isOverSort = dragOverSortId === method && !isDragging;
                 const labels: Record<string, string> = {
@@ -549,20 +552,37 @@ export default function FiltersOverlay({
                 const currentDir = activeFilters.sortDirections?.[method] ?? SORT_DIRECTION_DEFAULTS[method];
 
                 return (
-                  <div key={method}>
+                  // relative: the before/after insertion line below is `position: absolute`,
+                  // so it needs a positioned ancestor to anchor to. Without this the line would
+                  // anchor to some further-up ancestor and land in the wrong place.
+                  <div key={method} className="relative">
                     {isOverSort && dragOverSortPos === 'before' && (
-                      <div className="h-0.5 bg-purple-400 rounded-full my-0.5" />
+                      // Insertion line lives in the gap ABOVE this row, not inside it -- it's
+                      // absolutely positioned so it never adds real height to the layout. If it
+                      // were a normal flow element (like Stream Display's Name Column list does
+                      // it), every row below would visibly shift each time the hovered half
+                      // changes. Trade-off: this list's rows are larger and more spaced out than
+                      // Name Column's, so that shift is big enough to read as broken here, even
+                      // though it's barely noticeable there. z-10 guards against the line being
+                      // drawn under a neighboring row's rounded border in edge cases.
+                      <div className="absolute left-0 right-0 -top-1.5 h-0.5 z-10 bg-purple-400 rounded-full" />
                     )}
                     <div
                       draggable
                       onDragStart={(e) => {
+                        // Duplicated from above deliberately -- see the setData comment there.
                         e.dataTransfer.setData('text/plain', method);
                         e.dataTransfer.effectAllowed = 'move';
                         setDraggedSortItem(method);
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
+                        // WebKit shows a "copy" (plus) drag badge by default; this asks for the
+                        // "move" badge instead, since nothing here is ever copied. Cosmetic --
+                        // unconfirmed whether iOS Safari actually honors it.
                         e.dataTransfer.dropEffect = 'move';
+                        // Which half of the row the pointer is over decides insertion side --
+                        // same technique Stream Display's Name Column uses for its own line.
                         const rect = e.currentTarget.getBoundingClientRect();
                         const pos = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
                         setDragOverSortItem(`${method}::${pos}`);
@@ -570,6 +590,10 @@ export default function FiltersOverlay({
                       onDrop={(e) => {
                         e.preventDefault();
                         if (draggedSortItem && draggedSortItem !== method) {
+                          // Remove the dragged item FIRST, then locate the target's index in the
+                          // resulting array. The original code looked up both indices before
+                          // removing anything, which silently landed the drop one slot off from
+                          // where the line indicated whenever dragging forward through the list.
                           const rest = activeFilters.sortOrder.filter(m => m !== draggedSortItem);
                           let toIdx = rest.indexOf(method);
                           if (dragOverSortPos === 'after') toIdx += 1;
@@ -586,6 +610,11 @@ export default function FiltersOverlay({
                       className={clsx(
                         "flex items-center gap-3 p-3 rounded-lg border bg-slate-800/50 cursor-move transition-all",
                         isDragging && "opacity-50 scale-95",
+                        // No more ring/scale-up on hover -- the insertion line above/below is the
+                        // only "you're about to drop here" signal now. A ring on the row itself
+                        // implies "drop INTO this row" (containment), which isn't what a reorder
+                        // does; that semantic is intentionally reserved for Stream Display's
+                        // actual containment drops (an attribute landing inside a title row).
                         !isDragging && "border-slate-700 hover:border-slate-600"
                       )}
                     >
@@ -646,7 +675,9 @@ export default function FiltersOverlay({
                     )}
                     </div>
                     {isOverSort && dragOverSortPos === 'after' && (
-                      <div className="h-0.5 bg-purple-400 rounded-full my-0.5" />
+                      // Same overlay technique as the "before" line above, mirrored to the
+                      // bottom edge. See the comment on that line for the full rationale.
+                      <div className="absolute left-0 right-0 -bottom-1.5 h-0.5 z-10 bg-purple-400 rounded-full" />
                     )}
                   </div>
                 );
