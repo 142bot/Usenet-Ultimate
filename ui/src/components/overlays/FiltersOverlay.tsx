@@ -529,7 +529,8 @@ export default function FiltersOverlay({
             <div className="space-y-2">
               {(activeFilters.sortOrder || ['quality', 'videoTag', 'size', 'encode', 'visualTag', 'audioTag', 'language', 'edition']).map((method, index) => {
                 const isDragging = draggedSortItem === method;
-                const isOver = dragOverSortItem === method;
+                const [dragOverSortId, dragOverSortPos] = (dragOverSortItem ?? '').split('::');
+                const isOverSort = dragOverSortId === method && !isDragging;
                 const labels: Record<string, string> = {
                   quality: 'Resolution',
                   size: 'Size',
@@ -546,9 +547,6 @@ export default function FiltersOverlay({
                 };
                 const hasDirection = method in SORT_DIRECTION_LABELS;
                 const currentDir = activeFilters.sortDirections?.[method] ?? SORT_DIRECTION_DEFAULTS[method];
-
-                const [dragOverSortId, dragOverSortPos] = (dragOverSortItem ?? '').split('::');
-                const isOverSort = dragOverSortId === method && !isDragging;
 
                 return (
                   <div key={method}>
