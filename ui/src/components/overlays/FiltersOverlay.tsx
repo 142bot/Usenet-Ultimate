@@ -547,45 +547,50 @@ export default function FiltersOverlay({
                 const hasDirection = method in SORT_DIRECTION_LABELS;
                 const currentDir = activeFilters.sortDirections?.[method] ?? SORT_DIRECTION_DEFAULTS[method];
 
+                const [dragOverSortId, dragOverSortPos] = (dragOverSortItem ?? '').split('::');
+                const isOverSort = dragOverSortId === method && !isDragging;
+
                 return (
-                  <div
-                    key={method}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', method);
-                      e.dataTransfer.effectAllowed = 'move';
-                      setDraggedSortItem(method);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverSortItem(method);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (draggedSortItem && draggedSortItem !== method) {
-                        const newOrder = [...activeFilters.sortOrder];
-                        const draggedIndex = newOrder.indexOf(draggedSortItem);
-                        const targetIndex = newOrder.indexOf(method);
-
-                        newOrder.splice(draggedIndex, 1);
-                        newOrder.splice(targetIndex, 0, draggedSortItem);
-
-                        updateActiveFilters({ ...activeFilters, sortOrder: newOrder });
-                      }
-                      setDraggedSortItem(null);
-                      setDragOverSortItem(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedSortItem(null);
-                      setDragOverSortItem(null);
-                    }}
-                    className={clsx(
-                      "flex items-center gap-3 p-3 rounded-lg border bg-slate-800/50 cursor-move transition-all",
-                      isDragging && "opacity-50 scale-95",
-                      isOver && "ring-2 ring-purple-400 scale-105",
-                      !isDragging && !isOver && "border-slate-700 hover:border-slate-600"
+                  <div key={method}>
+                    {isOverSort && dragOverSortPos === 'before' && (
+                      <div className="h-0.5 bg-purple-400 rounded-full my-0.5" />
                     )}
-                  >
+                    <div
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', method);
+                        e.dataTransfer.effectAllowed = 'move';
+                        setDraggedSortItem(method);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pos = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+                        setDragOverSortItem(`${method}::${pos}`);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedSortItem && draggedSortItem !== method) {
+                          const rest = activeFilters.sortOrder.filter(m => m !== draggedSortItem);
+                          let toIdx = rest.indexOf(method);
+                          if (dragOverSortPos === 'after') toIdx += 1;
+                          rest.splice(toIdx, 0, draggedSortItem);
+                          updateActiveFilters({ ...activeFilters, sortOrder: rest });
+                        }
+                        setDraggedSortItem(null);
+                        setDragOverSortItem(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedSortItem(null);
+                        setDragOverSortItem(null);
+                      }}
+                      className={clsx(
+                        "flex items-center gap-3 p-3 rounded-lg border bg-slate-800/50 cursor-move transition-all",
+                        isDragging && "opacity-50 scale-95",
+                        !isDragging && "border-slate-700 hover:border-slate-600"
+                      )}
+                    >
                     <button
                       type="button"
                       draggable={false}
@@ -640,6 +645,10 @@ export default function FiltersOverlay({
                         <ArrowUpDown className="w-3 h-3" />
                         <span>{SORT_DIRECTION_LABELS[method]?.[currentDir ?? ''] ?? ''}</span>
                       </button>
+                    )}
+                    </div>
+                    {isOverSort && dragOverSortPos === 'after' && (
+                      <div className="h-0.5 bg-purple-400 rounded-full my-0.5" />
                     )}
                   </div>
                 );
